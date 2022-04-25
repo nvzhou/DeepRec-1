@@ -1395,17 +1395,28 @@ def fused_safe_embedding_lookup_sparse(embedding_weights,
                                                   sparse_weights.values,
                                                   sparse_ids.dense_shape)
 
-    result = fused_embedding_ops.fused_embedding_lookup_sparse(
-      embedding_weights,
-      sparse_ids,
-      sparse_weights=sparse_weights,
+    from tensorflow.python.ops.gen_ant_fused_embedding_ops import fused_sparse_local_embedding_lookup
+    result = fused_sparse_local_embedding_lookup(
+      fill_empty_row_default_id=(default_id if default_id is not None else -1),
       combiner=combiner,
-      partition_strategy=partition_strategy,
-      name=None if default_id is None else scope,
       max_norm=max_norm,
-      default_id=default_id,
-      prune_invalid_ids=True
+      sp_values=sparse_ids.values,
+      sp_indices=sparse_ids.indices,
+      sp_dense_shape=sparse_ids.dense_shape,
+      emb_table=embedding_weights[0],
     )
+
+    #result = fused_embedding_ops.fused_embedding_lookup_sparse(
+    #  embedding_weights,
+    #  sparse_ids,
+    #  sparse_weights=sparse_weights,
+    #  combiner=combiner,
+    #  partition_strategy=partition_strategy,
+    #  name=None if default_id is None else scope,
+    #  max_norm=max_norm,
+    #  default_id=default_id,
+    #  prune_invalid_ids=True
+    #)
 
     # Reshape back from linear ids back into higher-dimensional dense result.
     final_result = array_ops.reshape(

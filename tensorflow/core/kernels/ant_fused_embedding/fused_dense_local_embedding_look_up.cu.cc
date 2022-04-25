@@ -9,7 +9,6 @@
 #define EIGEN_USE_GPU
 
 #include "tensorflow/core/kernels/ant_fused_embedding/common.cu.h"
-#include "tensorflow/core/kernels/ant_fused_embedding/kernel_launches.cu.h"
 #include "tensorflow/core/profiler/nvtx_utils.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
 #include "third_party/cub/thread/thread_operators.cuh"
@@ -17,12 +16,29 @@
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 
+namespace ant_fused_embedding {
+#include "tensorflow/core/kernels/ant_fused_embedding/dense_kernels.cu.h"
+
+void EmbVecsGather(const GPUDevice& d, const float* emb_table,
+                   const int64_t* values, const int batch_size,
+                   const float max_norm, const int emb_vec_size,
+                   const int fill_empty_row_default_id, float* emb_vectors) {
+  const int threads = emb_vec_size;
+  const int blocks = batch_size;
+  TF_CHECK_OK(GpuLaunchKernel(EmbVecsGatherKernel, blocks, threads, 0,
+                              d.stream(), emb_table, values, batch_size,
+                              max_norm, emb_vec_size, fill_empty_row_default_id,
+                              emb_vectors));
+}
+
+}  // namespace ant_fused_embedding
+
 class FusedDenseLocalEmbeddingLookUpGPU : public OpKernel {
  public:
   explicit FusedDenseLocalEmbeddingLookUpGPU(OpKernelConstruction* ctx)
       : OpKernel(ctx) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("max_norm", &max_norm_));
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("fill_empty_row_default_id_",
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("fill_empty_row_default_id",
                                      &fill_empty_row_default_id_));
   }
 
@@ -59,7 +75,7 @@ class FusedDenseLocalEmbeddingLookUpGPU : public OpKernel {
 };
 
 REGISTER_KERNEL_BUILDER(
-    Name("FusedSparseLocalEmbeddingLookUp").Device(DEVICE_GPU),
+    Name("FusedDenseLocalEmbeddingLookUp").Device(DEVICE_GPU),
     FusedDenseLocalEmbeddingLookUpGPU);
 }  // namespace tensorflow
 

@@ -9,7 +9,6 @@
 #define EIGEN_USE_GPU
 
 #include "tensorflow/core/kernels/ant_fused_embedding/common.cu.h"
-#include "tensorflow/core/kernels/ant_fused_embedding/kernel_launches.cu.h"
 #include "tensorflow/core/profiler/nvtx_utils.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
 #include "third_party/cub/thread/thread_operators.cuh"
@@ -17,13 +16,55 @@
 namespace tensorflow {
 using GPUDevice = Eigen::GpuDevice;
 
+namespace ant_fused_embedding {
+#include "tensorflow/core/kernels/ant_fused_embedding/sparse_kernels.cu.h"
+
+void InitEmbVecsAndSubFeatureNumVec4(const GPUDevice& d, const int batch_size,
+                                     const int emv_vec_dim, float* emb_vectors,
+                                     int* sub_feature_num) {
+  const int threads = 32;
+  const int blocks =
+      CalcBlocksLinearMapping(batch_size * emv_vec_dim, threads * 4) +
+      CalcBlocksLinearMapping(batch_size, threads * 4);
+
+  TF_CHECK_OK(GpuLaunchKernel(InitEmbVecsAndSubFeatureNumVec4Kernel, blocks,
+                              threads, 0, d.stream(), batch_size, emv_vec_dim,
+                              emb_vectors, sub_feature_num));
+}
+
+void GetSubFeatureNum(const GPUDevice& d, const int64_t* sp_values,
+                      const int64_t* sp_indices, const int nnz,
+                      int* sub_feature_nums) {
+  const int threads = 32;
+  const int blocks = CalcBlocksLinearMapping(nnz, threads);
+  TF_CHECK_OK(GpuLaunchKernel(GetSubFeatureNumKernel, blocks, threads, 0,
+                              d.stream(), sp_values, sp_indices, nnz,
+                              sub_feature_nums));
+}
+
+template <Combiner combiner>
+void EmbVecsGatherAndCombine(
+    const GPUDevice& d, const float* emb_table, const int64_t* sp_values,
+    const int64_t* sp_indices, const int* sub_feature_nums, const int nnz,
+    const int batch_size, const float max_norm, const int emb_vec_size,
+    const int fill_empty_row_default_id, float* emb_vectors) {
+  const int threads = emb_vec_size;
+  const int blocks = nnz;
+  TF_CHECK_OK(GpuLaunchKernel(
+      EmbVecsGatherAndCombineKernel<combiner>, blocks, threads, 0, d.stream(),
+      emb_table, sp_values, sp_indices, sub_feature_nums, batch_size, max_norm,
+      emb_vec_size, fill_empty_row_default_id, emb_vectors));
+}
+
+}  // namespace ant_fused_embedding
+
 class FusedSparseLocalEmbeddingLookUpGPU : public OpKernel {
  public:
   explicit FusedSparseLocalEmbeddingLookUpGPU(OpKernelConstruction* ctx)
       : OpKernel(ctx) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("combiner", &combiner_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("max_norm", &max_norm_));
-    OP_REQUIRES_OK(ctx, ctx->GetAttr("fill_empty_row_default_id_",
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("fill_empty_row_default_id",
                                      &fill_empty_row_default_id_));
   }
 

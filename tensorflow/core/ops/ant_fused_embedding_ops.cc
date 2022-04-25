@@ -11,7 +11,7 @@ using shape_inference::ShapeHandle;
 
 REGISTER_OP("FusedSparseLocalEmbeddingLookUp")
     .Attr("T : {float32}")
-    .Attr("fill_empty_row_default_id_: int = -1")
+    .Attr("fill_empty_row_default_id: int = -1")
     .Attr("combiner: {'sqrtn', 'mean', 'sum'}")
     .Attr("max_norm: float = -1.0")
     .Input("sp_values: int64")
@@ -54,7 +54,7 @@ REGISTER_OP("FusedSparseLocalEmbeddingLookUp")
 
 REGISTER_OP("FusedDenseLocalEmbeddingLookUp")
     .Attr("T : {float32}")
-    .Attr("fill_empty_row_default_id_: int = -1")
+    .Attr("fill_empty_row_default_id: int = -1")
     .Attr("max_norm: float = -1.0")
     .Input("values: int64")
     .Input("emb_table: T")

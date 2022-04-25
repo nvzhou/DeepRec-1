@@ -77,7 +77,7 @@ __forceinline__ __device__ float Combine<Sum>(const float in,
 template <Combiner combiner>
 __forceinline__ __device__ void InternalMaxNormCombineAndWriteOutput(
     float emb_element, const int64_t row_in_batch, const int emb_vec_size,
-    const float max_norm, const int sub_feature_nums, float* l2_sum,
+    const float max_norm, const int sub_feature_num, float* l2_sum,
     float* emb_vectors) {
   if (max_norm >= 0.0f) {
     if (threadIdx.x == 0) {
@@ -92,7 +92,7 @@ __forceinline__ __device__ void InternalMaxNormCombineAndWriteOutput(
     }
   }
 
-  emb_element = Combine<combiner>(emb_element, sub_feature_nums);
+  emb_element = Combine<combiner>(emb_element, sub_feature_num);
   atomicAdd(emb_vectors + row_in_batch * emb_vec_size + threadIdx.x,
             emb_element);
 }
@@ -118,7 +118,7 @@ __global__ void EmbVecsGatherAndCombineKernel(
 
   const int64_t key = sp_values[blockIdx.x];
 
-  if (key > 0) {
+  if (key >= 0) {
     const int64_t row_in_batch = sp_indices[2 * blockIdx.x];
     const int sub_feature_num = sub_feature_nums[row_in_batch];
     float emb_element = emb_table[key * emb_vec_size + threadIdx.x];

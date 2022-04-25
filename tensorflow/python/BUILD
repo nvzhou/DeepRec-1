@@ -2090,6 +2090,7 @@ py_library(
     srcs_version = "PY2AND3",
     deps = [
         ":fused_embedding_ops_gen",
+        ":ant_fused_embedding_ops_gen",
         ":framework",
         ":util"
     ],
@@ -2102,6 +2103,16 @@ tf_gen_op_wrapper_private_py(
     ],
     deps = [
         "//tensorflow/core:fused_embedding_ops_op_lib"
+    ]
+)
+
+tf_gen_op_wrapper_private_py(
+    name = "ant_fused_embedding_ops_gen",
+    visibility = [
+        "//tensorflow:__subpackages__",
+    ],
+    deps = [
+        "//tensorflow/core:ant_fused_embedding_ops_op_lib"
     ]
 )
 

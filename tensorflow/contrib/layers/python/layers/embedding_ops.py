@@ -188,6 +188,7 @@ def safe_embedding_lookup_sparse(embedding_weights,
             (original_rank_dim - 1).value).concatenate(result.get_shape()[1:]))
     return final_result
 
+
 def fused_safe_embedding_lookup_sparse(embedding_weights,
                                        sparse_ids,
                                        sparse_weights=None,
@@ -239,18 +240,28 @@ def fused_safe_embedding_lookup_sparse(embedding_weights,
         array_ops.gather(original_shape, original_rank - 1)
     ])
 
-    result = fused_embedding_ops.fused_embedding_lookup_sparse(
-      embedding_weights,
-      sparse_ids,
-      sparse_weights=sparse_weights,
-      partition_strategy=partition_strategy,
-      name=name,
+    from tensorflow.python.ops.gen_ant_fused_embedding_ops import fused_sparse_local_embedding_lookup
+    result = fused_sparse_local_embedding_lookup(
+      fill_empty_row_default_id=(default_id if default_id is not None else -1),
       combiner=combiner,
       max_norm=max_norm,
-      default_id=default_id,
-      prune_invalid_ids=True,
-      blocknums=blocknums
+      sp_values=sparse_ids.values,
+      sp_indices=sparse_ids.indices,
+      sp_dense_shape=sparse_ids.dense_shape,
+      emb_table=embedding_weights[0],
     )
+    # result = fused_embedding_ops.fused_embedding_lookup_sparse(
+    #  embedding_weights,
+    #  sparse_ids,
+    #  sparse_weights=sparse_weights,
+    #  partition_strategy=partition_strategy,
+    #  name=name,
+    #  combiner=combiner,
+    #  max_norm=max_norm,
+    #  default_id=default_id,
+    #  prune_invalid_ids=True,
+    #  blocknums=blocknums
+    # )
 
     # Reshape back from linear ids back into higher-dimensional dense result.
     final_result = array_ops.reshape(
@@ -265,6 +276,7 @@ def fused_safe_embedding_lookup_sparse(embedding_weights,
         tensor_shape.unknown_shape(
             (original_rank_dim - 1).value).concatenate(result.get_shape()[1:]))
   return final_result
+
 
 def _prune_invalid_ids(sparse_ids, sparse_weights):
   """Prune invalid IDs (< 0) from the input ids and weights."""
@@ -648,9 +660,9 @@ def _sampled_scattered_embedding_lookup_sparse(params,
     raise TypeError("sp_values must be SparseTensor")
 
   with ops.name_scope(
-      name=name,
-      default_name="sampled_scattered_embedding_lookup_sparse",
-      values=[sp_values, params, dimension, sampled_candidates]) as name_scope:
+          name=name,
+          default_name="sampled_scattered_embedding_lookup_sparse",
+          values=[sp_values, params, dimension, sampled_candidates]) as name_scope:
     segment_ids = sp_values.indices[:, 0]
     if sampled_candidates is not None:
       # Tile sampled_candidates so there is one line corresponding to each
@@ -683,13 +695,13 @@ def _sampled_scattered_embedding_lookup_sparse(params,
 
 
 def embedding_lookup_sparse_with_distributed_aggregation(
-    params,
-    sp_ids,
-    sp_weights,
-    partition_strategy="mod",
-    name=None,
-    combiner=None,
-    max_norm=None):
+        params,
+        sp_ids,
+        sp_weights,
+        partition_strategy="mod",
+        name=None,
+        combiner=None,
+        max_norm=None):
   """Computes embeddings for the given ids and weights.
 
   Embeddings belonging to same param are aggregated on that device first. This
@@ -842,7 +854,7 @@ def _embedding_lookup_with_distributed_aggregation(params,
     np = len(params)  # Number of partitions
     # Preserve the resource variable status to avoid accidental dense reads.
     if not any(
-        isinstance(p, resource_variable_ops.ResourceVariable) for p in params):
+            isinstance(p, resource_variable_ops.ResourceVariable) for p in params):
       params = ops.convert_n_to_tensor_or_indexed_slices(params, name="params")
     if np == 1:
       with ops.colocate_with(params[0]):

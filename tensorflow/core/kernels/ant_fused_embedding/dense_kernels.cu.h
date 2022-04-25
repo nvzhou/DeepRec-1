@@ -29,7 +29,7 @@ __global__ void EmbVecsGatherKernel(const float* emb_table,
    */
   __shared__ float l2_sum[1];
   const int64_t key = values[blockIdx.x];
-  if (key > 0) {
+  if (key >= 0) {
     float emb_element = emb_table[key * emb_vec_size + threadIdx.x];
     InternalMaxNormAndWriteOutput(emb_element, emb_vec_size, max_norm, l2_sum,
                                   emb_vectors);
