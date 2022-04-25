@@ -1,0 +1,1 @@
+python inference.py --no_eval --data_location=../DLRM/data --batch_size=300 --inter=1

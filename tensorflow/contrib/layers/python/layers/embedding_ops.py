@@ -240,8 +240,8 @@ def fused_safe_embedding_lookup_sparse(embedding_weights,
         array_ops.gather(original_shape, original_rank - 1)
     ])
 
-    from tensorflow.python.ops.gen_ant_fused_embedding_ops import fused_sparse_local_embedding_lookup
-    result = fused_sparse_local_embedding_lookup(
+    from tensorflow.python.ops.gen_ant_fused_embedding_ops import fused_sparse_local_embedding_look_up
+    result = fused_sparse_local_embedding_look_up(
       fill_empty_row_default_id=(default_id if default_id is not None else -1),
       combiner=combiner,
       max_norm=max_norm,
